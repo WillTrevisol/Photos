@@ -1,9 +1,11 @@
 package com.trevisol.photos.viewmodel
 
 import android.content.Context
-import android.util.Log
+import android.graphics.Bitmap
+import android.widget.ImageView
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.android.volley.toolbox.ImageRequest
 import com.trevisol.photos.R
 import com.trevisol.photos.data.repositories.JsonPlaceholderAPI
 import com.trevisol.photos.domain.entities.Photo
@@ -23,11 +25,44 @@ class PhotosViewModel(
         repository.addRequestToQueue(
             JsonPlaceholderAPI.PhotosRequest(
                 { photos ->
-                    Log.i("TESTE", "SUCESSO $photos")
                     _photos.value = PhotoState.Success(photos)
                 },
                 {
                     _photos.value = PhotoState.Error(R.string.failed_to_retrieve_photos)
+                }
+            )
+        )
+    }
+
+    fun retrievePhoto(url: String) {
+        _photos.value = PhotoState.Loading
+        repository.addRequestToQueue(
+            ImageRequest(
+                url,
+                { response ->
+                    _photos.value = PhotoState.PhotoSuccess(response)
+                },
+                0, 0,
+                ImageView.ScaleType.CENTER, Bitmap.Config.ARGB_8888,
+                {
+                    _photos.value = PhotoState.Error(R.string.failed_to_retrieve_photo)
+                }
+            )
+        )
+    }
+
+    fun retrieveThumbnail(url: String) {
+        _photos.value = PhotoState.Loading
+        repository.addRequestToQueue(
+            ImageRequest(
+                url,
+                { response ->
+                    _photos.value = PhotoState.ThumbnailSuccess(response)
+                },
+                0, 0,
+                ImageView.ScaleType.CENTER, Bitmap.Config.ARGB_8888,
+                {
+                    _photos.value = PhotoState.Error(R.string.failed_to_retrieve_thumbnail)
                 }
             )
         )
@@ -49,6 +84,8 @@ class PhotosViewModel(
         data object Initial: PhotoState
         data object Loading: PhotoState
         data class Success(val photos: List<Photo>): PhotoState
+        data class PhotoSuccess(val bitmap: Bitmap): PhotoState
+        data class ThumbnailSuccess(val bitmap: Bitmap): PhotoState
         data class Error(val resId: Int): PhotoState
     }
 }

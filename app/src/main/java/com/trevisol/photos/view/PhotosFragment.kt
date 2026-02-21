@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -22,6 +24,7 @@ class PhotosFragment: Fragment() {
         PhotosViewModel.photosViewFactory(this.requireContext())
     }
     private lateinit var photosAdapter: PhotosAdapter
+    private lateinit var photos: List<Photo>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,22 +36,61 @@ class PhotosFragment: Fragment() {
     ): View {
         fragmentPhotosBinding = FragmentPhotosBinding.inflate(inflater, container, false)
 
+        fragmentPhotosBinding.photosSpinner.apply {
+            onItemSelectedListener = object: AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long
+                ) {
+                    val photo = photos[position]
+                    viewModel.retrievePhoto(photo.url)
+                    viewModel.retrieveThumbnail(photo.thumbnailUrl)
+                }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) { }
+
+            }
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.photos.collect {
                     when (it) {
                         is PhotosViewModel.PhotoState.Error -> {
-                            fragmentPhotosBinding.loadingIndicator.visibility = View.GONE
+                            updateImageViewsVisibilityToGone()
+                            updateLoadingVisibility(View.GONE)
+                            Toast.makeText(this@PhotosFragment.requireContext() , it.resId, Toast.LENGTH_SHORT).show()
                         }
                         PhotosViewModel.PhotoState.Initial -> {
-                            fragmentPhotosBinding.loadingIndicator.visibility = View.GONE
+                            updateImageViewsVisibilityToGone()
+                            updateLoadingVisibility(View.GONE)
                         }
                         PhotosViewModel.PhotoState.Loading -> {
-                            fragmentPhotosBinding.loadingIndicator.visibility = View.VISIBLE
+                            updateImageViewsVisibilityToGone()
+                            updateLoadingVisibility(View.VISIBLE)
                         }
                         is PhotosViewModel.PhotoState.Success -> {
-                            fragmentPhotosBinding.loadingIndicator.visibility = View.GONE
+                            updateLoadingVisibility(View.GONE)
+                            photos = it.photos
                             setupSpinnerRv(it.photos)
+                        }
+                        is PhotosViewModel.PhotoState.PhotoSuccess -> {
+                            fragmentPhotosBinding.apply {
+                                photoTextView.visibility = View.VISIBLE
+                                photoImageView.setImageBitmap(it.bitmap)
+                                photoImageView.visibility = View.VISIBLE
+                                updateLoadingVisibility(View.GONE)
+                            }
+                        }
+                        is PhotosViewModel.PhotoState.ThumbnailSuccess -> {
+                            fragmentPhotosBinding.apply {
+                                thumbnailTextView.visibility = View.VISIBLE
+                                thumbnailImageView.setImageBitmap(it.bitmap)
+                                thumbnailImageView.visibility = View.VISIBLE
+                                updateLoadingVisibility(View.GONE)
+                            }
                         }
                     }
                 }
@@ -61,6 +103,19 @@ class PhotosFragment: Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         viewModel.retrievePhotos()
+    }
+
+    private fun updateLoadingVisibility(visibility: Int) {
+        fragmentPhotosBinding.loadingIndicator.visibility = visibility
+    }
+
+    private fun updateImageViewsVisibilityToGone() {
+        fragmentPhotosBinding.apply {
+            photoTextView.visibility = View.GONE
+            photoImageView.visibility = View.GONE
+            thumbnailTextView.visibility = View.GONE
+            thumbnailImageView.visibility = View.GONE
+        }
     }
 
     private fun setupSpinnerRv(photos: List<Photo>) {

@@ -10,8 +10,8 @@ data class PhotoItem(
     val url: String
 ) {
     fun toDomainEntity(): Photo = Photo(
-        thumbnailUrl,
-        title,
-        url
+        thumbnailUrl = "${thumbnailUrl.replace("via.placeholder.com", "dummyjson.com/image/")}/webp",
+        url = "${url.replace("via.placeholder.com", "dummyjson.com/image/")}/webp",
+        title = title
     )
 }
